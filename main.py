@@ -459,7 +459,7 @@ def run_dashboard(uploaded_files_param, placeholder):
         ))
         fig_gauge.update_layout(paper_bgcolor=CARD_BG, plot_bgcolor=CARD_BG,
                                  font=dict(color=TEXT), height=190,
-                                 margin=dict(l=15, r=15, t=30, b=10))
+                                 margin=dict(l=15, r=25, t=30, b=10))
         st.plotly_chart(fig_gauge, use_container_width=True)
 
     # --- UI RENDER WITHIN PLACEHOLDER ---
