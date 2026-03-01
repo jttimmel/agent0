@@ -357,10 +357,12 @@ def run_dashboard(uploaded_files_param, placeholder):
         ext_fw_ips = set(fw_f[~fw_f[fw_sc["src_ip"]].apply(is_internal)][fw_sc["src_ip"]].dropna().unique())
 
     failed_logins = 0
+    fail_pct = 0
     brute_force_ips = set()
     if auth_sc.get("action") and auth_sc["action"] in auth_f.columns:
         fail_mask = auth_f[auth_sc["action"]].str.contains("fail|fail.*login|denied", case=False, na=False, regex=True)
         failed_logins = fail_mask.sum()
+        fail_pct = (failed_logins / len(auth_f) * 100) if len(auth_f) else 0
         if auth_sc.get("src_ip") and auth_sc["src_ip"] in auth_f.columns:
             ip_fails = auth_f[fail_mask].groupby(auth_sc["src_ip"]).size()
             brute_force_ips = set(ip_fails[ip_fails >= 5].index.tolist())
@@ -375,22 +377,33 @@ def run_dashboard(uploaded_files_param, placeholder):
 
     threat_score = 0
     threat_factors = []
+    
     if ext_fw_ips:
         pts = min(30, len(ext_fw_ips) * 10)
         threat_score += pts
         threat_factors.append(f"External IPs on firewall (+{pts})")
+    
     if brute_force_ips:
         pts = min(35, len(brute_force_ips) * 15)
         threat_score += pts
         threat_factors.append(f"Brute-force IPs ({len(brute_force_ips)}) (+{pts})")
+        
+    # NEW RULE: Spike score if overall failure rate is greater than 35% (Password Spraying)
+    if fail_pct > 35:
+        pts = 20
+        threat_score += pts
+        threat_factors.append(f"High Auth Failure Rate ({fail_pct:.1f}%) (+{pts})")
+        
     if suspicious_dns_hits > 0:
         pts = min(25, suspicious_dns_hits * 10)
         threat_score += pts
         threat_factors.append(f"Suspicious DNS queries ({suspicious_dns_hits}) (+{pts})")
+        
     if mal_count > 0:
         pts = min(40, mal_count * 20)
         threat_score += pts
         threat_factors.append(f"Malware alerts ({mal_count}) (+{pts})")
+        
     threat_score = min(100, threat_score)
 
     if threat_score >= 70:
@@ -500,7 +513,6 @@ def run_dashboard(uploaded_files_param, placeholder):
             """, unsafe_allow_html=True)
 
         total_events = len(fw_f) + len(auth_f) + len(dns_f) + len(mal_f)
-        fail_pct = (failed_logins / len(auth_f) * 100) if len(auth_f) else 0
 
         k1, k2, k3, k4, k5 = st.columns(5)
 
@@ -549,6 +561,12 @@ def run_dashboard(uploaded_files_param, placeholder):
         if brute_force_ips:
             attack_signals.append({"Signal": "Brute Force Login Attempts", "Indicator": ", ".join(list(brute_force_ips)[:5]),
                                     "Severity": "CRITICAL", "Source": "Auth Logs", "Action": "Block IP, Reset PW"})
+        
+        # Adding the distributed spray warning to the actionable table
+        if fail_pct > 35:
+             attack_signals.append({"Signal": "Distributed Auth Failures (Password Spray)", "Indicator": f"Global failure rate at {fail_pct:.1f}%",
+                                    "Severity": "HIGH", "Source": "Auth Logs", "Action": "Force Global MFA"})
+                                    
         if ext_fw_ips:
             attack_signals.append({"Signal": "External IPs on Firewall", "Indicator": ", ".join(list(ext_fw_ips)[:5]),
                                     "Severity": "HIGH", "Source": "Firewall", "Action": "Update FW Rules"})
@@ -564,6 +582,9 @@ def run_dashboard(uploaded_files_param, placeholder):
         if attack_signals:
             st.markdown("<p class='section-hdr' style='color:#f04438'>Active Threat Signals (Action Required)</p>", unsafe_allow_html=True)
             st.dataframe(pd.DataFrame(attack_signals), use_container_width=True, hide_index=True)
+
+        # --- STATS FOR NERDS HEADER ---
+        st.markdown("<p style='font-size:2.0rem; font-weight:700; margin-top:2.5rem; margin-bottom:0.5rem; color:#e6edf3;'>Stats for Nerds ↓</p>", unsafe_allow_html=True)
 
         tab_timeline, tab_threats, tab_fw, tab_auth, tab_dns, tab_mal = st.tabs([
             "Timeline", "Threat Tables",
