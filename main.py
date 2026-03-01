@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import os
 import time
+import re
 import random
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -141,7 +142,6 @@ st.markdown(f"""
 # ─────────────────────────────────────────────────────────────────────────────
 # FUZZY COLUMN DETECTION HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
-import re
 def _fuzzy_find(columns, patterns, default=None):
     cols_lower = [c.lower() for c in columns]
     for pat in patterns:
@@ -255,7 +255,7 @@ def return_home():
 # ─────────────────────────────────────────────────────────────────────────────
 def run_dashboard(uploaded_files_param, placeholder):
     
-    # 1. LOAD FULL DATA FIRST (Required to calculate dynamic time slider)
+    # 1. LOAD FULL DATA FIRST (Required to calculate dynamic time slider bounds)
     dfs_full, schemas = load_data(uploaded_files=uploaded_files_param)
     
     # 2. CALCULATE DYNAMIC TIME BOUNDS FOR SMOOTH SLIDER
@@ -272,29 +272,30 @@ def run_dashboard(uploaded_files_param, placeholder):
     if all_mins and all_maxs:
         global_min = min(all_mins)
         global_max = max(all_maxs)
-        total_minutes = (global_max - global_min).total_seconds() / 60.0
+        total_minutes = max(1, (global_max - global_min).total_seconds() / 60.0)
         
-        if total_minutes > 1:
-            num_steps = 15 # Divides the total data duration into 15 smooth increments
-            step_size = total_minutes / num_steps
-            for i in range(1, num_steps):
-                mins = int(i * step_size)
-                if mins == 0: continue
+        # Slices the total data duration into mathematically even increments
+        num_steps = 15 
+        step_size = total_minutes / num_steps
+        
+        for i in range(1, num_steps):
+            mins = int(i * step_size)
+            if mins == 0: continue
+            
+            d = mins // 1440
+            h = (mins % 1440) // 60
+            m = mins % 60
+            
+            parts = []
+            if d > 0: parts.append(f"{d}d")
+            if h > 0: parts.append(f"{h}h")
+            if m > 0 or not parts: parts.append(f"{m}m")
+            
+            lbl = "Last " + " ".join(parts)
+            if lbl not in time_options:
+                time_options.append(lbl)
+                time_map[lbl] = pd.Timedelta(minutes=mins)
                 
-                d = mins // 1440
-                h = (mins % 1440) // 60
-                m = mins % 60
-                
-                parts = []
-                if d > 0: parts.append(f"{d}d")
-                if h > 0: parts.append(f"{h}h")
-                if m > 0 or not parts: parts.append(f"{m}m")
-                lbl = "Last " + " ".join(parts)
-                
-                if lbl not in time_options:
-                    time_options.append(lbl)
-                    time_map[lbl] = pd.Timedelta(minutes=mins)
-                    
     time_options.append("Full")
 
     # 3. RENDER SIDEBAR
@@ -311,7 +312,7 @@ def run_dashboard(uploaded_files_param, placeholder):
         st.markdown(f"<p style='color:{TEXT_SEC};font-size:0.7rem;text-transform:uppercase;letter-spacing:1px'>Live Operations</p>", unsafe_allow_html=True)
         
         # LIVE MODE TOGGLE
-        live_mode = st.toggle("Go Live (Real-Time Data)", value=st.session_state.get('live_mode', False))
+        live_mode = st.toggle("🔴 Go Live (Real-Time Data)", value=st.session_state.get('live_mode', False))
         st.session_state.live_mode = live_mode
         
         st.markdown(f"<p style='color:{TEXT_SEC};font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-top:1rem'>Time Window</p>", unsafe_allow_html=True)
