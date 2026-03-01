@@ -45,56 +45,119 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ─────────────────────────────────────────────────────────────────────────────
+# AGGRESSIVE CSS OVERRIDES (Forces Dark Mode regardless of system settings)
+# ─────────────────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-  .stApp {{ background-color:{BG}; color:{TEXT}; font-family:'Source Sans Pro',sans-serif; }}
-  .stApp header {{ background-color:{BG}; }}
-  [data-testid="stSidebar"] {{ background-color:{CARD_BG}; border-right:1px solid {BORDER}; }}
-  h1,h2,h3,h4 {{ color:{TEXT} !important; }}
-  .stTabs [data-baseweb="tab-list"] {{ background-color:{CARD_BG}; border-radius:8px; border:1px solid {BORDER}; padding-left: 20px; }}
-  .stTabs [data-baseweb="tab"] {{ color:{TEXT_SEC}; font-size:0.82rem; }}
+  
+  /* Base App enforcement */
+  .stApp {{ background-color:{BG} !important; color:{TEXT} !important; font-family:'Source Sans Pro',sans-serif; }}
+  .stApp header {{ background-color:{BG} !important; }}
+  [data-testid="stSidebar"] {{ background-color:{CARD_BG} !important; border-right:1px solid {BORDER} !important; }}
+  h1,h2,h3,h4,p,span {{ color:{TEXT} !important; }}
+  
+  /* Tabs */
+  .stTabs [data-baseweb="tab-list"] {{ background-color:{CARD_BG} !important; border-radius:8px; border:1px solid {BORDER} !important; padding-left: 20px; }}
+  .stTabs [data-baseweb="tab"] {{ color:{TEXT_SEC} !important; font-size:0.82rem; }}
   .stTabs [aria-selected="true"] {{ color:{TEXT} !important; }}
-  div[data-testid="stDataFrame"] {{ background:{CARD_BG}; border-radius:8px; }}
+  
+  /* Metric Cards */
   .metric-card {{
       background:{CARD_BG}; border:1px solid {BORDER}; border-radius:10px;
       padding:1rem 1.1rem; text-align:center; margin-bottom:0.4rem;
   }}
   .metric-val {{ font-size:1.9rem; font-weight:700; line-height:1.1; }}
-  .metric-label {{ font-size:0.7rem; color:{TEXT_SEC}; margin-top:0.25rem; letter-spacing:0.5px; text-transform:uppercase; }}
+  .metric-label {{ font-size:0.7rem; color:{TEXT_SEC} !important; margin-top:0.25rem; letter-spacing:0.5px; text-transform:uppercase; }}
   .metric-delta {{ font-size:0.72rem; margin-top:0.15rem; }}
+  
+  /* Threat Banners */
   .banner-critical {{
       background:rgba(240,68,56,0.15); border:1px solid {RED};
-      border-radius:10px; padding:1rem 1.25rem; color:{RED};
+      border-radius:10px; padding:1rem 1.25rem; color:{RED} !important;
       font-size:1rem; font-weight:600; margin-bottom:1rem;
   }}
   .banner-warning {{
       background:rgba(255,180,0,0.12); border:1px solid {AMBER};
-      border-radius:10px; padding:1rem 1.25rem; color:{AMBER};
+      border-radius:10px; padding:1rem 1.25rem; color:{AMBER} !important;
       font-size:1rem; font-weight:600; margin-bottom:1rem;
   }}
   .banner-ok {{
       background:rgba(23,178,106,0.1); border:1px solid {GREEN};
-      border-radius:10px; padding:1rem 1.25rem; color:{GREEN};
+      border-radius:10px; padding:1rem 1.25rem; color:{GREEN} !important;
       font-size:1rem; font-weight:600; margin-bottom:1rem;
   }}
   .section-hdr {{
-      color:{TEXT}; font-size:0.88rem; font-weight:600; text-transform:uppercase;
+      color:{TEXT} !important; font-size:0.88rem; font-weight:600; text-transform:uppercase;
       letter-spacing:0.8px; border-bottom:1px solid {BORDER};
       padding-bottom:0.3rem; margin-bottom:0.7rem; margin-top:1rem;
   }}
-  .threat-badge-high {{ color:{RED}; font-weight:700; }}
-  .threat-badge-med  {{ color:{AMBER}; font-weight:600; }}
-  .threat-badge-low  {{ color:{GREEN}; }}
+  
+  /* AI Terminal */
   .terminal-box {{
-      background:#0a0c10; padding:12px 15px; border-radius:8px; 
+      background:#0a0c10 !important; padding:12px 15px; border-radius:8px; 
       font-family:"JetBrains Mono", monospace; font-size:0.85rem; 
-      border:1px solid #30363d; margin-bottom:1rem; 
+      border:1px solid #30363d !important; margin-bottom:1rem; 
       box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  }}
+
+  /* 🔥 FORCED THEME FIXES: Buttons, Uploaders, Tables 🔥 */
+  .stButton > button {{
+      background-color: {CARD_BG} !important;
+      color: {TEXT} !important;
+      border: 1px solid {BORDER} !important;
+  }}
+  .stButton > button:hover {{
+      border-color: {BLUE} !important;
+      color: {BLUE} !important;
+  }}
+  [data-testid="stFileUploadDropzone"] {{
+      background-color: {CARD_BG} !important;
+      color: {TEXT} !important;
+      border: 1px dashed {BORDER} !important;
+  }}
+  [data-testid="stDataFrame"], [data-testid="stTable"] {{
+      background-color: {CARD_BG} !important;
+      border-radius: 8px !important;
+  }}
+  table {{
+      color: {TEXT} !important;
+      background-color: {CARD_BG} !important;
+  }}
+  th {{
+      background-color: #0d1117 !important;
+      color: {TEXT_SEC} !important;
+      border-bottom: 1px solid {BORDER} !important;
+  }}
+  td {{
+      background-color: {CARD_BG} !important;
+      color: {TEXT} !important;
+      border-bottom: 1px solid #21262d !important;
   }}
 </style>
 """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TIME WINDOW GENERATOR (Smooth 30m Increments up to 24 hours)
+# ─────────────────────────────────────────────────────────────────────────────
+TIME_OPTIONS = []
+TIME_MAP = {}
+
+for m_total in range(30, 24 * 60 + 30, 30):
+    h = m_total // 60
+    m = m_total % 60
+    if h == 0:
+        lbl = f"Last {m}m"
+    elif m == 0:
+        lbl = f"Last {h}h"
+    else:
+        lbl = f"Last {h}h {m}m"
+    TIME_OPTIONS.append(lbl)
+    TIME_MAP[lbl] = pd.Timedelta(minutes=m_total)
+
+TIME_OPTIONS.append("Full")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FUZZY COLUMN DETECTION HELPERS
@@ -180,11 +243,12 @@ def load_data(uploaded_files=None):
     return dfs, schemas
 
 def apply_time_filter(df, ts_col, window):
-    if not ts_col or ts_col not in df.columns or df.empty: return df
+    if not ts_col or ts_col not in df.columns or df.empty or window == "Full": 
+        return df
     t_max = df[ts_col].max()
-    hours_map = {"Last 1h": 1, "Last 2h": 2, "Last 4h": 4, "Last 6h": 6}
-    if window in hours_map:
-        return df[df[ts_col] >= t_max - pd.Timedelta(hours=hours_map[window])]
+    
+    if window in TIME_MAP:
+        return df[df[ts_col] >= t_max - TIME_MAP[window]]
     return df
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -228,13 +292,14 @@ def run_dashboard(uploaded_files_param, placeholder):
         st.session_state.live_mode = live_mode
         
         st.markdown(f"<p style='color:{TEXT_SEC};font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-top:1rem'>Time Window</p>", unsafe_allow_html=True)
-        time_window = st.select_slider("window", ["Last 1h", "Last 2h", "Last 4h", "Last 6h", "Full"], value="Full", label_visibility="collapsed")
+        
+        # USE THE NEW SMOOTH TIME OPTIONS HERE
+        time_window = st.select_slider("window", TIME_OPTIONS, value="Full", label_visibility="collapsed")
 
     # LOAD FULL DATA
     dfs_full, schemas = load_data(uploaded_files=uploaded_files_param)
     
     # --- REAL-TIME DATA STREAMING SIMULATOR ---
-    # Advance the data slice if live mode is active
     if st.session_state.live_mode:
         st.session_state.stream_progress += 0.02 # Reveal 2% more data every tick
         if st.session_state.stream_progress > 1.0:
@@ -264,7 +329,7 @@ def run_dashboard(uploaded_files_param, placeholder):
     dns_f  = apply_time_filter(dns,  dns_sc.get("timestamp"),   time_window)
     mal_f  = apply_time_filter(mal,  mal_sc.get("timestamp"),   time_window)
 
-    # COMPUTE THREAT SCORES (Based on currently revealed data)
+    # COMPUTE THREAT SCORES
     ext_fw_ips = set()
     if fw_sc.get("src_ip") and fw_sc["src_ip"] in fw_f.columns:
         ext_fw_ips = set(fw_f[~fw_f[fw_sc["src_ip"]].apply(is_internal)][fw_sc["src_ip"]].dropna().unique())
@@ -841,7 +906,7 @@ def run_dashboard(uploaded_files_param, placeholder):
             <div style='position:fixed;bottom:1rem;right:1.5rem;background:rgba(240,68,56,0.15);
                  border:1px solid {RED};border-radius:8px;padding:0.4rem 0.9rem;
                  font-size:0.72rem;color:{RED}; font-weight:bold;'>
-              🔴 LIVE STREAM ACTIVE
+            LIVE STREAM ACTIVE
             </div>""", unsafe_allow_html=True)
             time.sleep(2) # Reruns every 2 seconds
             st.rerun()
