@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -136,8 +135,26 @@ def is_internal(ip):
         return True
     return any(ip.startswith(p) for p in KNOWN_INTERNAL_PREFIXES)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VIEW CALLBACKS (Fixes the ghosting issue)
+# ─────────────────────────────────────────────────────────────────────────────
+def load_example_view():
+    st.session_state.view = 'dashboard_example'
+
+def process_file_upload():
+    if st.session_state.get('splash_csv_uploader'):
+        st.session_state.uploaded_files = st.session_state.splash_csv_uploader
+        st.session_state.view = 'dashboard_upload'
+
+def return_home():
+    st.session_state.view = 'splash'
+    st.session_state.uploaded_files = None
+
+
 def run_dashboard(uploaded_files_param):
     """Main function to render the SOC dashboard."""
+    st.empty()
     with st.sidebar:
         st.markdown(f"""
         <div style="text-align:center;padding:0.5rem 0 1rem">
@@ -145,9 +162,8 @@ def run_dashboard(uploaded_files_param):
           <div style="font-size:0.9rem;color:{TEXT_SEC};margin-top:0.2rem">SOC Intelligence Platform</div>
         </div>""", unsafe_allow_html=True)
         st.divider()
-        if st.button("⬅ Back to Home"):
-            st.session_state.view = 'splash'
-            st.rerun()
+        # Using the callback directly here
+        st.button("⬅ Back to Home", key="back_btn", on_click=return_home)
         st.divider()
 
     @st.cache_data(ttl=30)
@@ -771,21 +787,21 @@ def show_splash_page():
     with col1:
         st.markdown("<h3 style='text-align: center;'>View a Demo</h3>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #8b949e; margin-bottom: 1rem;'>Analyze a pre-loaded dataset of a simulated cyber attack.</p>", unsafe_allow_html=True)
-        if st.button("See Example Case", use_container_width=True):
-            st.session_state.view = 'dashboard_example'
-            st.rerun()
+        
+        # Using the callback to change state before render starts
+        st.button("See Example Case", use_container_width=True, key="splash_demo_btn", on_click=load_example_view)
 
     with col2:
         st.markdown("<h3 style='text-align: center;'>Analyze Your Data</h3>", unsafe_allow_html=True)
-        uploaded = st.file_uploader(
+        
+        # Using the callback for file uploads
+        st.file_uploader(
             "Drag and drop your CSV log files here to begin analysis.",
             accept_multiple_files=True,
-            type="csv"
+            type="csv",
+            key="splash_csv_uploader",
+            on_change=process_file_upload
         )
-        if uploaded:
-            st.session_state.view = 'dashboard_upload'
-            st.session_state.uploaded_files = uploaded
-            st.rerun()
         st.markdown("<p style='text-align: center; color: #8b949e; height: 60px;'>Upload your own CSV logs to detect threats in your environment.</p>", unsafe_allow_html=True)
 
 # --- Main App Logic ---
@@ -793,6 +809,7 @@ if 'view' not in st.session_state:
     st.session_state.view = 'splash'
     st.session_state.uploaded_files = None
 
+# Pure routing. The callbacks above handle all state changes and reruns cleanly.
 if st.session_state.view == 'dashboard_example':
     run_dashboard(uploaded_files_param=None)
 elif st.session_state.view == 'dashboard_upload':
