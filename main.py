@@ -312,7 +312,7 @@ def run_dashboard(uploaded_files_param, placeholder):
         st.markdown(f"<p style='color:{TEXT_SEC};font-size:0.7rem;text-transform:uppercase;letter-spacing:1px'>Live Operations</p>", unsafe_allow_html=True)
         
         # LIVE MODE TOGGLE
-        live_mode = st.toggle("🔴 Go Live (Real-Time Data)", value=st.session_state.get('live_mode', False))
+        live_mode = st.toggle("Go Live (Real-Time Data)", value=st.session_state.get('live_mode', False))
         st.session_state.live_mode = live_mode
         
         st.markdown(f"<p style='color:{TEXT_SEC};font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-top:1rem'>Time Window</p>", unsafe_allow_html=True)
