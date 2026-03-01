@@ -4,7 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import os
 import time
-import re
 import random
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -140,28 +139,9 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TIME WINDOW GENERATOR (Smooth 30m Increments up to 24 hours)
-# ─────────────────────────────────────────────────────────────────────────────
-TIME_OPTIONS = []
-TIME_MAP = {}
-
-for m_total in range(30, 24 * 60 + 30, 30):
-    h = m_total // 60
-    m = m_total % 60
-    if h == 0:
-        lbl = f"Last {m}m"
-    elif m == 0:
-        lbl = f"Last {h}h"
-    else:
-        lbl = f"Last {h}h {m}m"
-    TIME_OPTIONS.append(lbl)
-    TIME_MAP[lbl] = pd.Timedelta(minutes=m_total)
-
-TIME_OPTIONS.append("Full")
-
-# ─────────────────────────────────────────────────────────────────────────────
 # FUZZY COLUMN DETECTION HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
+import re
 def _fuzzy_find(columns, patterns, default=None):
     cols_lower = [c.lower() for c in columns]
     for pat in patterns:
@@ -242,13 +222,12 @@ def load_data(uploaded_files=None):
                 dfs[key], schemas[key] = df, sc
     return dfs, schemas
 
-def apply_time_filter(df, ts_col, window):
+def apply_time_filter(df, ts_col, window, time_map):
     if not ts_col or ts_col not in df.columns or df.empty or window == "Full": 
         return df
     t_max = df[ts_col].max()
-    
-    if window in TIME_MAP:
-        return df[df[ts_col] >= t_max - TIME_MAP[window]]
+    if window in time_map:
+        return df[df[ts_col] >= t_max - time_map[window]]
     return df
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -256,7 +235,7 @@ def apply_time_filter(df, ts_col, window):
 # ─────────────────────────────────────────────────────────────────────────────
 def load_example_view():
     st.session_state.view = 'dashboard_example'
-    st.session_state.stream_progress = 0.8  # Reset stream progress
+    st.session_state.stream_progress = 0.8  
     st.session_state.live_logs = [f"<span style='color:{GREEN}'>[SYS]</span> AgentØ Initialized. Awaiting live data..."]
 
 def process_file_upload():
@@ -275,6 +254,50 @@ def return_home():
 # MAIN DASHBOARD RENDERER
 # ─────────────────────────────────────────────────────────────────────────────
 def run_dashboard(uploaded_files_param, placeholder):
+    
+    # 1. LOAD FULL DATA FIRST (Required to calculate dynamic time slider)
+    dfs_full, schemas = load_data(uploaded_files=uploaded_files_param)
+    
+    # 2. CALCULATE DYNAMIC TIME BOUNDS FOR SMOOTH SLIDER
+    all_mins, all_maxs = [], []
+    for key, df in dfs_full.items():
+        ts_col = schemas[key].get("timestamp")
+        if ts_col and not df.empty and ts_col in df.columns:
+            all_mins.append(df[ts_col].min())
+            all_maxs.append(df[ts_col].max())
+            
+    time_options = []
+    time_map = {}
+    
+    if all_mins and all_maxs:
+        global_min = min(all_mins)
+        global_max = max(all_maxs)
+        total_minutes = (global_max - global_min).total_seconds() / 60.0
+        
+        if total_minutes > 1:
+            num_steps = 15 # Divides the total data duration into 15 smooth increments
+            step_size = total_minutes / num_steps
+            for i in range(1, num_steps):
+                mins = int(i * step_size)
+                if mins == 0: continue
+                
+                d = mins // 1440
+                h = (mins % 1440) // 60
+                m = mins % 60
+                
+                parts = []
+                if d > 0: parts.append(f"{d}d")
+                if h > 0: parts.append(f"{h}h")
+                if m > 0 or not parts: parts.append(f"{m}m")
+                lbl = "Last " + " ".join(parts)
+                
+                if lbl not in time_options:
+                    time_options.append(lbl)
+                    time_map[lbl] = pd.Timedelta(minutes=mins)
+                    
+    time_options.append("Full")
+
+    # 3. RENDER SIDEBAR
     with st.sidebar:
         st.markdown(f"""
         <div style="text-align:center;padding:0.5rem 0 1rem">
@@ -293,13 +316,11 @@ def run_dashboard(uploaded_files_param, placeholder):
         
         st.markdown(f"<p style='color:{TEXT_SEC};font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-top:1rem'>Time Window</p>", unsafe_allow_html=True)
         
-        # USE THE NEW SMOOTH TIME OPTIONS HERE
-        time_window = st.select_slider("window", TIME_OPTIONS, value="Full", label_visibility="collapsed")
+        # USE THE NEW SMOOTH DYNAMIC SLIDER
+        time_window = st.select_slider("window", time_options, value="Full", label_visibility="collapsed")
 
-    # LOAD FULL DATA
-    dfs_full, schemas = load_data(uploaded_files=uploaded_files_param)
     
-    # --- REAL-TIME DATA STREAMING SIMULATOR ---
+    # 4. REAL-TIME DATA STREAMING SIMULATOR 
     if st.session_state.live_mode:
         st.session_state.stream_progress += 0.02 # Reveal 2% more data every tick
         if st.session_state.stream_progress > 1.0:
@@ -323,13 +344,13 @@ def run_dashboard(uploaded_files_param, placeholder):
     dns  = dfs["dns"];       dns_sc  = schemas["dns"]
     mal  = dfs["malware"];   mal_sc  = schemas["malware"]
 
-    # Apply time filtering immediately so all metrics reflect the window
-    fw_f   = apply_time_filter(fw,   fw_sc.get("timestamp"),   time_window)
-    auth_f = apply_time_filter(auth, auth_sc.get("timestamp"),  time_window)
-    dns_f  = apply_time_filter(dns,  dns_sc.get("timestamp"),   time_window)
-    mal_f  = apply_time_filter(mal,  mal_sc.get("timestamp"),   time_window)
+    # Apply time filtering using the dynamically built map
+    fw_f   = apply_time_filter(fw,   fw_sc.get("timestamp"),   time_window, time_map)
+    auth_f = apply_time_filter(auth, auth_sc.get("timestamp"),  time_window, time_map)
+    dns_f  = apply_time_filter(dns,  dns_sc.get("timestamp"),   time_window, time_map)
+    mal_f  = apply_time_filter(mal,  mal_sc.get("timestamp"),   time_window, time_map)
 
-    # COMPUTE THREAT SCORES
+    # COMPUTE THREAT SCORES 
     ext_fw_ips = set()
     if fw_sc.get("src_ip") and fw_sc["src_ip"] in fw_f.columns:
         ext_fw_ips = set(fw_f[~fw_f[fw_sc["src_ip"]].apply(is_internal)][fw_sc["src_ip"]].dropna().unique())
@@ -906,7 +927,7 @@ def run_dashboard(uploaded_files_param, placeholder):
             <div style='position:fixed;bottom:1rem;right:1.5rem;background:rgba(240,68,56,0.15);
                  border:1px solid {RED};border-radius:8px;padding:0.4rem 0.9rem;
                  font-size:0.72rem;color:{RED}; font-weight:bold;'>
-            LIVE STREAM ACTIVE
+              🔴 LIVE STREAM ACTIVE
             </div>""", unsafe_allow_html=True)
             time.sleep(2) # Reruns every 2 seconds
             st.rerun()
