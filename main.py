@@ -32,6 +32,7 @@ PLOTLY_BASE = dict(
     legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_SEC)),
     xaxis=dict(gridcolor="#21262d", zerolinecolor="#21262d", tickfont=dict(color=TEXT_SEC)),
     yaxis=dict(gridcolor="#21262d", zerolinecolor="#21262d", tickfont=dict(color=TEXT_SEC)),
+    title=dict(x=0.5, xanchor='center'),
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +40,7 @@ PLOTLY_BASE = dict(
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AgentØ",
-    page_icon="🛡️",
+    page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -260,7 +261,7 @@ def run_dashboard(uploaded_files_param):
         auto_refresh = st.toggle("30-second refresh", value=True)
 
         st.markdown(f"<p style='color:{TEXT_SEC};font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-top:1rem'>Time Window</p>", unsafe_allow_html=True)
-        time_window = st.select_slider("window", ["Full", "Last 6h", "Last 4h", "Last 2h", "Last 1h"], value="Full", label_visibility="collapsed")
+        time_window = st.select_slider("window", ["Last 1h", "Last 2h", "Last 4h", "Last 6h", "Full"], value="Full", label_visibility="collapsed")
 
         st.divider()
         st.markdown(f"""
@@ -378,21 +379,21 @@ def run_dashboard(uploaded_files_param):
     attack_signals = []
     if brute_force_ips:
         attack_signals.append({"Signal": "Brute Force Login Attempts", "Indicator": ", ".join(list(brute_force_ips)[:5]),
-                                "Severity": "CRITICAL", "Source": "Auth Logs"})
+                                "Severity": "CRITICAL", "Source": "Auth Logs", "Action": "Block IP, Reset PW"})
     if ext_fw_ips:
         attack_signals.append({"Signal": "External IPs on Firewall", "Indicator": ", ".join(list(ext_fw_ips)[:5]),
-                                "Severity": "HIGH", "Source": "Firewall"})
+                                "Severity": "HIGH", "Source": "Firewall", "Action": "Update FW Rules"})
     if suspicious_dns_hits > 0:
         attack_signals.append({"Signal": "Suspicious DNS Queries", "Indicator": f"{suspicious_dns_hits} queries to malicious/suspicious domains",
-                                "Severity": "ELEVATED", "Source": "DNS"})
+                                "Severity": "ELEVATED", "Source": "DNS", "Action": "Sinkhole Domain"})
     if mal_count > 0:
         threat_col = mal_sc.get("threat")
         threat_names = mal[threat_col].unique().tolist() if threat_col and threat_col in mal.columns else ["Unknown"]
         attack_signals.append({"Signal": "Malware Detected", "Indicator": ", ".join(str(t) for t in threat_names[:3]),
-                                "Severity": "CRITICAL", "Source": "Malware AV"})
+                                "Severity": "CRITICAL", "Source": "Malware AV", "Action": "Isolate Host"})
 
     if attack_signals:
-        st.markdown("<p class='section-hdr' style='color:#f04438'>🚨 Active Threat Signals (Action Required)</p>", unsafe_allow_html=True)
+        st.markdown("<p class='section-hdr' style='color:#f04438'>Active Threat Signals (Action Required)</p>", unsafe_allow_html=True)
         st.dataframe(pd.DataFrame(attack_signals), use_container_width=True, hide_index=True)
 
     tab_timeline, tab_threats, tab_fw, tab_auth, tab_dns, tab_mal = st.tabs([
@@ -526,8 +527,9 @@ def run_dashboard(uploaded_files_param):
                     line=dict(color=BLUE, width=2),
                     fillcolor="rgba(88,166,255,0.1)",
                 ))
-                fig_fw.update_layout(**PLOTLY_BASE, title="Traffic Volume (Sudden spikes = Scan/Flood)", height=280,
-                                      xaxis_title="Time", yaxis_title="Events")
+                fig_fw.update_layout(**PLOTLY_BASE)
+                fig_fw.update_layout(title="Traffic Volume (Sudden spikes = Scan/Flood)", height=280,
+                                          xaxis_title="Time", yaxis_title="Events")
                 st.plotly_chart(fig_fw, use_container_width=True)
 
             col_f1, col_f2 = st.columns(2)
@@ -589,8 +591,9 @@ def run_dashboard(uploaded_files_param):
                             line=dict(color=color, width=2), fill="tozeroy",
                             fillcolor=f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.1)",
                         ))
-                fig_auth.update_layout(**PLOTLY_BASE, title="Auth Volume (Failures = Brute Force Risk)",
-                                        xaxis_title="Time", yaxis_title="Events", height=300)
+                fig_auth.update_layout(**PLOTLY_BASE)
+                fig_auth.update_layout(title="Auth Volume (Failures = Brute Force Risk)",
+                                            xaxis_title="Time", yaxis_title="Events", height=300)
                 st.plotly_chart(fig_auth, use_container_width=True)
 
             col_a1, col_a2 = st.columns(2)
@@ -606,8 +609,9 @@ def run_dashboard(uploaded_files_param):
                             marker_color=ORANGE, text=user_fails["Failures"],
                             textposition="outside", textfont=dict(color=TEXT_SEC),
                         ))
-                        fig_uf.update_layout(**PLOTLY_BASE, title="Failed Logins by User",
-                                              xaxis_title="User", yaxis_title="Failures", height=320)
+                        fig_uf.update_layout(**PLOTLY_BASE)
+                        fig_uf.update_layout(title="Failed Logins by User",
+                                                  xaxis_title="User", yaxis_title="Failures", height=320)
                         st.plotly_chart(fig_uf, use_container_width=True)
 
             with col_a2:
@@ -618,7 +622,8 @@ def run_dashboard(uploaded_files_param):
                         if col_name in ip_pivot.columns:
                             fig_ip.add_trace(go.Bar(name=col_name, x=ip_pivot[auth_sc["src_ip"]],
                                                      y=ip_pivot[col_name], marker_color=color))
-                    fig_ip.update_layout(**PLOTLY_BASE, barmode="group",
+                    fig_ip.update_layout(**PLOTLY_BASE)
+                    fig_ip.update_layout(barmode="group",
                                           title="Auth Outcomes by Source IP",
                                           xaxis_title="Source IP", yaxis_title="Count", height=320)
                     st.plotly_chart(fig_ip, use_container_width=True)
@@ -654,8 +659,9 @@ def run_dashboard(uploaded_files_param):
                     line=dict(color=LAVENDER, width=2),
                     fillcolor="rgba(208,187,255,0.1)",
                 ))
-                fig_dns.update_layout(**PLOTLY_BASE, title="DNS Volume (Spikes = Tunneling/C2)",
-                                       xaxis_title="Time", yaxis_title="Queries", height=280)
+                fig_dns.update_layout(**PLOTLY_BASE)
+                fig_dns.update_layout(title="DNS Volume (Spikes = Tunneling/C2)",
+                                           xaxis_title="Time", yaxis_title="Queries", height=280)
                 st.plotly_chart(fig_dns, use_container_width=True)
 
             col_d1, col_d2 = st.columns(2)
@@ -684,7 +690,8 @@ def run_dashboard(uploaded_files_param):
                         marker_color=CYAN, text=src_vc["Queries"],
                         textposition="outside", textfont=dict(color=TEXT_SEC),
                     ))
-                    fig_cli.update_layout(**PLOTLY_BASE, title="Queries by Client IP",
+                    fig_cli.update_layout(**PLOTLY_BASE)
+                    fig_cli.update_layout(title="Queries by Client IP",
                                            xaxis_title="Client IP", yaxis_title="Query Count", height=420)
                     st.plotly_chart(fig_cli, use_container_width=True)
 
@@ -758,14 +765,12 @@ def show_splash_page():
     """Displays the main splash page with options to see a demo or upload data."""
     st.markdown("<h1 style='text-align: center; font-size: 3.5rem; font-weight: 700;'>AgentØ</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; font-size: 1.1rem; color: #8b949e;'>Your Real-Time SOC Intelligence Platform</p>", unsafe_allow_html=True)
-    st.write("")
-    st.write("")
 
     col1, _, col2 = st.columns([2, 0.5, 2])
 
     with col1:
         st.markdown("<h3 style='text-align: center;'>View a Demo</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #8b949e; height: 60px;'>Analyze a pre-loaded dataset of a simulated cyber attack.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #8b949e; margin-bottom: 1rem;'>Analyze a pre-loaded dataset of a simulated cyber attack.</p>", unsafe_allow_html=True)
         if st.button("See Example Case", use_container_width=True):
             st.session_state.view = 'dashboard_example'
             st.rerun()
@@ -781,6 +786,7 @@ def show_splash_page():
             st.session_state.view = 'dashboard_upload'
             st.session_state.uploaded_files = uploaded
             st.rerun()
+        st.markdown("<p style='text-align: center; color: #8b949e; height: 60px;'>Upload your own CSV logs to detect threats in your environment.</p>", unsafe_allow_html=True)
 
 # --- Main App Logic ---
 if 'view' not in st.session_state:
